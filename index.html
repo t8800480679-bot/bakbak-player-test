@@ -17,7 +17,7 @@
     .player {
       width: 100%;
       aspect-ratio: 16 / 9;
-      background: #000;
+      background: black;
     }
     iframe {
       display: block;
@@ -25,37 +25,100 @@
       height: 100%;
       border: 0;
     }
-    .message {
-      padding: 14px;
-      font-size: 14px;
-      color: #ccc;
+    #status {
+      color: #aaa;
+      font: 12px Arial, sans-serif;
+      padding: 6px 10px;
     }
   </style>
 </head>
 <body>
-  <div class="player" id="player"></div>
-  <div class="message" id="message"></div>
+  <div id="playerContainer" class="player"></div>
+  <div id="status">Loading YouTube player...</div>
 
   <script>
     const params = new URLSearchParams(location.search);
     const requestedId = params.get('v');
     const fallbackId = 'M7lc1UVf-VE';
-
     const validId = /^[A-Za-z0-9_-]{11}$/;
-    const videoId =
-      requestedId === null ? fallbackId :
-      validId.test(requestedId) ? requestedId : null;
+
+    const videoId = requestedId === null
+      ? fallbackId
+      : validId.test(requestedId)
+        ? requestedId
+        : null;
+
+    const status = document.getElementById('status');
+    let player = null;
+    let lastSeconds = -1;
+
+    function sendToApp(data) {
+      if (window.ReactNativeWebView &&
+          typeof window.ReactNativeWebView.postMessage === 'function') {
+        window.ReactNativeWebView.postMessage(
+          JSON.stringify(data)
+        );
+      }
+    }
+
+    function reportTime() {
+      if (!player ||
+          typeof player.getCurrentTime !== 'function') {
+        return;
+      }
+
+      try {
+        const seconds = player.getCurrentTime();
+
+        if (Number.isFinite(seconds) && seconds >= 0) {
+          lastSeconds = seconds;
+          status.textContent =
+            'Playback: ' + seconds.toFixed(1) + 's';
+
+          sendToApp({
+            type: 'time',
+            seconds: seconds
+          });
+        }
+      } catch (error) {
+        status.textContent = 'Waiting for playback...';
+      }
+    }
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('youtubePlayer', {
+        events: {
+          onReady: function () {
+            status.textContent = 'Player ready';
+            sendToApp({ type: 'ready' });
+            reportTime();
+          },
+          onStateChange: function () {
+            reportTime();
+          },
+          onError: function (event) {
+            status.textContent =
+              'YouTube error: ' + event.data;
+            sendToApp({
+              type: 'error',
+              code: event.data
+            });
+          }
+        }
+      });
+    }
 
     if (!videoId) {
-      document.getElementById('message').textContent =
-        'Invalid YouTube video ID.';
+      status.textContent = 'Invalid YouTube video ID';
     } else {
       const iframe = document.createElement('iframe');
+      iframe.id = 'youtubePlayer';
 
       iframe.src =
         'https://www.youtube.com/embed/' +
         encodeURIComponent(videoId) +
-        '?playsinline=1';
+        '?playsinline=1&enablejsapi=1&origin=' +
+        encodeURIComponent(location.origin);
 
       iframe.title = 'YouTube video player';
       iframe.referrerPolicy = 'strict-origin-when-cross-origin';
@@ -64,7 +127,14 @@
         'gyroscope; picture-in-picture; fullscreen';
       iframe.allowFullscreen = true;
 
-      document.getElementById('player').appendChild(iframe);
+      document.getElementById('playerContainer')
+        .appendChild(iframe);
+
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(script);
+
+      setInterval(reportTime, 1000);
     }
   </script>
 </body>
