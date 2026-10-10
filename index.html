@@ -1,39 +1,72 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1">
-  <meta name="referrer"
-        content="strict-origin-when-cross-origin">
-  <title>BakBak YouTube Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>BakBak Player</title>
   <style>
-    body {
+    html, body {
       margin: 0;
-      padding: 20px;
+      padding: 0;
       background: #08090D;
       color: white;
       font-family: Arial, sans-serif;
     }
-    h2 { color: #FF2D75; }
-    iframe {
+    .player {
       width: 100%;
       aspect-ratio: 16 / 9;
+      background: #000;
+    }
+    iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
       border: 0;
-      border-radius: 12px;
+    }
+    .message {
+      padding: 14px;
+      font-size: 14px;
+      color: #ccc;
     }
   </style>
 </head>
 <body>
-  <h2>😂 BakBak Player Test</h2>
-  <p>Testing YouTube playback on HTTPS.</p>
+  <div class="player" id="player"></div>
+  <div class="message" id="message"></div>
 
-  <iframe
-    src="https://www.youtube.com/embed/M7lc1UVf-VE?playsinline=1"
-    title="YouTube player"
-    referrerpolicy="strict-origin-when-cross-origin"
-    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-    allowfullscreen>
-  </iframe>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const requestedId = params.get('v');
+    const fallbackId = 'M7lc1UVf-VE';
+
+    const validId = /^[A-Za-z0-9_-]{11}$/;
+    const videoId =
+      requestedId === null ? fallbackId :
+      validId.test(requestedId) ? requestedId : null;
+
+    if (!videoId) {
+      document.getElementById('message').textContent =
+        'Invalid YouTube video ID.';
+    } else {
+      const iframe = document.createElement('iframe');
+
+      iframe.src =
+        'https://www.youtube.com/embed/' +
+        encodeURIComponent(videoId) +
+        '?playsinline=1';
+
+      iframe.title = 'YouTube video player';
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+      iframe.allow =
+        'accelerometer; autoplay; encrypted-media; ' +
+        'gyroscope; picture-in-picture; fullscreen';
+      iframe.allowFullscreen = true;
+
+      document.getElementById('player').appendChild(iframe);
+    }
+  </script>
 </body>
 </html>
+
